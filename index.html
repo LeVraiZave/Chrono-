@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#03070c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Chrono">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Chrono</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Chakra+Petch:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cyan: #16c4ff;
+    --cyan-dim: rgba(22,196,255,.28);
+    --ink: #e8f4ff;
+    --base: #03070c;
+    --panel: rgba(2,10,18,.9);
+    --alarm: #d1121b;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); height: 100%; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden;
+    font-family: "Chakra Petch", "Segoe UI", system-ui, sans-serif; }
+  body { display: flex; align-items: center; justify-content: center; }
+
+  /* Cadre 9/16 portrait */
+  .phone {
+    position: relative; height: 100%; max-height: 100%; max-width: 100%;
+    aspect-ratio: 9 / 16; container-type: size; overflow: hidden;
+    display: flex; flex-direction: column;
+    background:
+      linear-gradient(rgba(22,196,255,.045) 1px, transparent 1px) 0 0 / 7cqw 7cqw,
+      linear-gradient(90deg, rgba(22,196,255,.045) 1px, transparent 1px) 0 0 / 7cqw 7cqw,
+      radial-gradient(120% 70% at 50% 45%, #0a1826 0%, var(--base) 70%);
+  }
+  @media (min-width: 700px) { .phone { max-height: 96vh; border-radius: 6px; box-shadow: 0 0 0 1px var(--cyan-dim), 0 0 40px rgba(22,196,255,.12); } }
+
+  /* Fond seul qui clignote (derrière tout le contenu) */
+  .bgflash { position: absolute; inset: 0; z-index: 0; background: var(--alarm); opacity: 0; pointer-events: none; }
+  .bgflash.on { animation: blink .8s steps(1, end) infinite; }
+  @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .bgflash.on { animation-duration: 1.6s; } }
+
+  /* Panneaux HUD : coins en équerre */
+  .hud {
+    --bk: 3cqw; --bt: 2px; --bc: var(--cyan); --fill: var(--panel); --edge: var(--cyan-dim);
+    border: 1px solid var(--edge);
+    background:
+      linear-gradient(var(--bc), var(--bc)) 0 0 / var(--bk) var(--bt) no-repeat,
+      linear-gradient(var(--bc), var(--bc)) 0 0 / var(--bt) var(--bk) no-repeat,
+      linear-gradient(var(--bc), var(--bc)) 100% 0 / var(--bk) var(--bt) no-repeat,
+      linear-gradient(var(--bc), var(--bc)) 100% 0 / var(--bt) var(--bk) no-repeat,
+      linear-gradient(var(--bc), var(--bc)) 0 100% / var(--bk) var(--bt) no-repeat,
+      linear-gradient(var(--bc), var(--bc)) 0 100% / var(--bt) var(--bk) no-repeat,
+      linear-gradient(var(--bc), var(--bc)) 100% 100% / var(--bk) var(--bt) no-repeat,
+      linear-gradient(var(--bc), var(--bc)) 100% 100% / var(--bt) var(--bk) no-repeat,
+      var(--fill);
+  }
+  .frame { position: absolute; inset: 2.4cqw; z-index: 1; pointer-events: none; --bk: 9cqw; --bt: 2px; --fill: transparent; --edge: rgba(22,196,255,.12); }
+
+  /* Durées */
+  .presets { position: relative; z-index: 2; display: grid; grid-template-columns: repeat(4, 1fr); gap: 2.6cqw; padding: 8cqw 7cqw 0; }
+  .preset {
+    font: 600 clamp(15px, 5.4cqw, 26px)/1 "Chakra Petch", sans-serif; letter-spacing: .04em; color: #b9dff2;
+    height: 14cqw; min-height: 48px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    padding: 0; transition: background .15s, color .15s, box-shadow .15s, transform .1s;
+  }
+  .preset:active { transform: scale(.96); }
+  .preset[aria-pressed="true"] { --fill: rgba(22,196,255,.2); --edge: var(--cyan); color: #fff; box-shadow: 0 0 14px rgba(22,196,255,.35), inset 0 0 12px rgba(22,196,255,.15); }
+  .preset svg { width: 6.6cqw; height: 6.6cqw; min-width: 22px; min-height: 22px; }
+  .preset:focus-visible, .btn:focus-visible, .modal input:focus-visible, .actions button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+  /* Cadran */
+  .center { position: relative; z-index: 2; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  .dial { position: relative; width: 88cqw; aspect-ratio: 1; max-height: 100%; }
+  .dial svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .bezel { fill: #050c14; stroke: rgba(22,196,255,.4); stroke-width: 1; }
+  .accent { fill: none; stroke: var(--cyan); stroke-width: 3.4; }
+  .inner { fill: none; stroke: rgba(22,196,255,.3); stroke-width: .6; }
+  .face { fill: #07121d; }
+  .tick { stroke: rgba(22,196,255,.38); stroke-width: .7; }
+  .tick.l { stroke: rgba(22,196,255,.85); stroke-width: 1.1; }
+  .seg { stroke: var(--cyan); stroke-width: 4.4; }
+  .dial.done .face { fill: var(--alarm); }
+  .dial.done .accent { stroke: #ffd6d8; }
+  .dial.done .inner { stroke: rgba(255,255,255,.5); }
+  .dial.done .bezel { stroke: rgba(255,255,255,.4); }
+
+  .readout { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .num { font-family: "Big Shoulders Display", Impact, "Arial Narrow", sans-serif; font-weight: 800; white-space: nowrap; line-height: .95; }
+  .num i { font-style: normal; display: inline-block; text-align: center; }
+  .num .d { width: .54em; } .num .s { width: .3em; } .num .p { width: .5em; }
+  .time { font-size: 21cqw; color: var(--ink); text-shadow: 0 0 16px rgba(22,196,255,.4); }
+  .time.long { font-size: 16.5cqw; }
+  .cs { font-size: 8.4cqw; color: var(--cyan); font-weight: 700; margin-top: .6cqw; }
+  .status { margin-top: 2.6cqw; font-size: clamp(11px, 3.3cqw, 16px); font-weight: 600; letter-spacing: .28em; color: var(--cyan); text-transform: uppercase; padding-left: .28em; }
+  .dial.done .time, .dial.done .cs, .dial.done .status { color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.55); }
+
+  /* Commandes */
+  .controls { position: relative; z-index: 2; display: flex; gap: 3cqw; padding: 0 7cqw 9cqw; }
+  .btn { font: 600 clamp(14px, 4.6cqw, 22px)/1 "Chakra Petch", sans-serif; letter-spacing: .2em; color: #d8f1ff; cursor: pointer;
+    height: 15.5cqw; min-height: 52px; display: flex; align-items: center; justify-content: center; padding-left: .2em; transition: transform .1s, box-shadow .15s; }
+  .btn:active { transform: scale(.97); }
+  .btn.sq { width: 15.5cqw; min-width: 52px; padding: 0; }
+  .btn.sq svg { width: 44%; height: 44%; }
+  .btn.wide { flex: 1; --fill: rgba(22,196,255,.16); --edge: var(--cyan); box-shadow: 0 0 16px rgba(22,196,255,.28), inset 0 0 14px rgba(22,196,255,.12); }
+
+  /* Fenêtre durée personnalisée */
+  .scrim { position: absolute; inset: 0; z-index: 10; background: rgba(0,0,0,.6); display: none; align-items: flex-end; padding: 0 5cqw 6cqw; }
+  .scrim.open { display: flex; }
+  .modal { width: 100%; padding: 6cqw; --edge: var(--cyan); --fill: #050d16; --bk: 5cqw; box-shadow: 0 0 24px rgba(22,196,255,.25); }
+  .modal h2 { margin: 0 0 4cqw; font: 600 clamp(15px, 4.6cqw, 22px)/1.1 "Chakra Petch", sans-serif; letter-spacing: .14em; text-transform: uppercase; }
+  .fields { display: flex; align-items: flex-end; gap: 3cqw; }
+  .field { flex: 1; }
+  .field label { display: block; font-size: clamp(11px, 3.3cqw, 15px); letter-spacing: .18em; text-transform: uppercase; color: var(--cyan); margin-bottom: 1.6cqw; }
+  .field input { width: 100%; font: 800 clamp(30px, 11cqw, 52px)/1 "Big Shoulders Display", Impact, sans-serif; text-align: center; color: #fff;
+    background: rgba(22,196,255,.08); border: 1px solid var(--cyan-dim); border-radius: 0; padding: 1.6cqw 0; }
+  .colon { font: 800 clamp(30px, 11cqw, 52px)/1 "Big Shoulders Display", Impact, sans-serif; padding-bottom: 2cqw; color: var(--cyan); }
+  .err { color: #ff8a8f; font-size: clamp(12px, 3.5cqw, 16px); min-height: 1.3em; margin-top: 2cqw; }
+  .actions { display: flex; gap: 3cqw; margin-top: 4cqw; }
+  .actions button { flex: 1; font: 600 clamp(13px, 4cqw, 18px)/1 "Chakra Petch", sans-serif; letter-spacing: .16em; text-transform: uppercase; color: #d8f1ff; height: 13cqw; min-height: 46px; cursor: pointer; }
+  .actions .ok { --fill: rgba(22,196,255,.22); --edge: var(--cyan); }
+</style>
+</head>
+<body>
+<main class="phone" id="phone">
+  <div class="bgflash" id="flash"></div>
+  <div class="frame hud"></div>
+
+  <div class="presets" role="group" aria-label="Choisir la durée">
+    <button class="preset hud" data-sec="60" aria-pressed="true" aria-label="1 minute">1:00</button>
+    <button class="preset hud" data-sec="90" aria-pressed="false" aria-label="1 minute 30">1:30</button>
+    <button class="preset hud" data-sec="120" aria-pressed="false" aria-label="2 minutes">2:00</button>
+    <button class="preset hud" id="custom" aria-pressed="false" aria-label="Durée personnalisée">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+
+  <div class="center">
+    <div class="dial" id="dial">
+      <svg viewBox="0 0 200 200" aria-hidden="true">
+        <defs>
+          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="1.8" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <circle class="bezel" cx="100" cy="100" r="98"/>
+        <circle class="accent" cx="100" cy="100" r="95" stroke-dasharray="49.2 98.45" stroke-dashoffset="24.6" filter="url(#glow)"/>
+        <g id="ticks"></g>
+        <circle class="inner" cx="100" cy="100" r="70"/>
+        <g id="segs" filter="url(#glow)"></g>
+        <circle class="face" cx="100" cy="100" r="67"/>
+      </svg>
+      <div class="readout" role="timer" aria-live="off">
+        <div class="num time" id="time"></div>
+        <div class="num cs" id="cs"></div>
+        <div class="status" id="status">Prêt</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn sq hud" id="reset" aria-label="Remettre à zéro">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+    </button>
+    <button class="btn wide hud" id="toggle">Démarrer</button>
+  </div>
+
+  <div class="scrim" id="scrim">
+    <div class="modal hud" role="dialog" aria-modal="true" aria-labelledby="mt">
+      <h2 id="mt">Durée personnalisée</h2>
+      <div class="fields">
+        <div class="field"><label for="mm">Minutes</label><input id="mm" type="number" inputmode="numeric" min="0" max="99" value="3"></div>
+        <div class="colon">:</div>
+        <div class="field"><label for="ss">Secondes</label><input id="ss" type="number" inputmode="numeric" min="0" max="59" value="0"></div>
+      </div>
+      <div class="err" id="err"></div>
+      <div class="actions">
+        <button class="hud" id="cancel" type="button">Annuler</button>
+        <button class="hud ok" id="ok" type="button">Valider</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var NS = 'http://www.w3.org/2000/svg';
+  var dial = $('dial'), timeEl = $('time'), csEl = $('cs'), statusEl = $('status');
+  var toggle = $('toggle'), flash = $('flash'), scrim = $('scrim');
+  var presets = document.querySelectorAll('.preset');
+
+  var N = 60, DIM = 0.13;
+  var duration = 60000, acc = 0, startTs = 0;
+  var running = false, finished = false, raf = 0, wake = null;
+  var customSec = 180, lastIdx = -1, lastMain = '';
+
+  try { var saved = parseInt(localStorage.getItem('chrono.custom'), 10); if (saved > 0) customSec = saved; } catch (e) {}
+
+  /* --- Construction du cadran --- */
+  function radial(g, r1, r2, deg, cls) {
+    var a = deg * Math.PI / 180, s = Math.sin(a), c = Math.cos(a);
+    var l = document.createElementNS(NS, 'line');
+    l.setAttribute('x1', (100 + r1 * s).toFixed(2)); l.setAttribute('y1', (100 - r1 * c).toFixed(2));
+    l.setAttribute('x2', (100 + r2 * s).toFixed(2)); l.setAttribute('y2', (100 - r2 * c).toFixed(2));
+    l.setAttribute('class', cls);
+    g.appendChild(l);
+    return l;
+  }
+  var ticksG = $('ticks'), segsG = $('segs'), segs = [], i;
+  for (i = 0; i < 60; i++) radial(ticksG, 88.5, i % 5 === 0 ? 92.5 : 91, i * 6, i % 5 === 0 ? 'tick l' : 'tick');
+  // Segments dans le sens horaire, le premier à 12 h
+  for (i = 0; i < N; i++) segs.push(radial(segsG, 72, 84, i * 6, 'seg'));
+
+  /* --- Affichage --- */
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function spans(str) {
+    return str.replace(/./g, function (c) {
+      var k = /\d/.test(c) ? 'd' : (c === '+' ? 'p' : 's');
+      return '<i class="' + k + '">' + c + '</i>';
+    });
+  }
+
+  function updateSegs(p) {
+    var pos = p * N, idx = Math.min(N, Math.floor(pos)), frac = pos - idx;
+    if (idx !== lastIdx) {
+      for (var k = 0; k < N; k++) segs[k].setAttribute('opacity', k < idx ? DIM : 1);
+      lastIdx = idx;
+    }
+    if (idx < N) segs[idx].setAttribute('opacity', (1 - frac * (1 - DIM)).toFixed(3));
+  }
+
+  function render(elapsed) {
+    var remaining = duration - elapsed, over = remaining <= 0;
+    var cs = over ? Math.floor(-remaining / 10) : Math.ceil(remaining / 10);
+    var m = Math.floor(cs / 6000), s = Math.floor(cs / 100) % 60, c = cs % 100;
+    var main = (over ? '+' : '') + m + ':' + pad(s);
+    if (main !== lastMain) {
+      lastMain = main;
+      timeEl.innerHTML = spans(main);
+      timeEl.classList.toggle('long', main.length > 5);
+    }
+    csEl.innerHTML = spans('.' + pad(c));
+    updateSegs(Math.min(1, elapsed / duration));
+  }
+
+  function setLabel() {
+    toggle.textContent = running ? 'Pause' : (acc > 0 ? 'Reprendre' : 'Démarrer');
+  }
+
+  /* --- Chrono --- */
+  function tick() {
+    var elapsed = acc + (performance.now() - startTs);
+    if (!finished && elapsed >= duration) {
+      finished = true;
+      dial.classList.add('done');
+      statusEl.textContent = 'Temps écoulé';
+      flash.classList.add('on'); // clignote jusqu'à la remise à zéro
+    }
+    render(elapsed);
+    raf = requestAnimationFrame(tick);
+  }
+
+  function requestWake() {
+    try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (l) { wake = l; }).catch(function () {}); } catch (e) {}
+  }
+  function releaseWake() { try { if (wake) { wake.release(); wake = null; } } catch (e) {} }
+
+  function start() {
+    if (running) return;
+    running = true;
+    startTs = performance.now();
+    if (!finished) statusEl.textContent = 'En cours';
+    setLabel(); requestWake();
+    raf = requestAnimationFrame(tick);
+  }
+  function pause() {
+    if (!running) return;
+    running = false;
+    cancelAnimationFrame(raf);
+    acc += performance.now() - startTs;
+    if (!finished) statusEl.textContent = 'Pause';
+    setLabel(); releaseWake();
+  }
+  function reset() {
+    running = false; finished = false; acc = 0; lastIdx = -1;
+    cancelAnimationFrame(raf);
+    flash.classList.remove('on');
+    dial.classList.remove('done');
+    statusEl.textContent = 'Prêt';
+    setLabel(); releaseWake();
+    render(0);
+  }
+
+  toggle.addEventListener('click', function () { running ? pause() : start(); });
+  $('reset').addEventListener('click', reset);
+
+  function setDuration(sec, btn) {
+    duration = sec * 1000;
+    presets.forEach(function (b) { b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'); });
+    reset();
+  }
+  presets.forEach(function (b) {
+    if (b.id === 'custom') return;
+    b.addEventListener('click', function () { setDuration(parseInt(b.dataset.sec, 10), b); });
+  });
+
+  /* --- Durée personnalisée --- */
+  var customBtn = $('custom'), mm = $('mm'), ss = $('ss'), err = $('err');
+  function openModal() {
+    mm.value = Math.floor(customSec / 60); ss.value = customSec % 60; err.textContent = '';
+    scrim.classList.add('open');
+    setTimeout(function () { mm.focus(); mm.select(); }, 50);
+  }
+  function closeModal() { scrim.classList.remove('open'); customBtn.focus(); }
+  customBtn.addEventListener('click', openModal);
+  $('cancel').addEventListener('click', closeModal);
+  scrim.addEventListener('click', function (e) { if (e.target === scrim) closeModal(); });
+  document.addEventListener('keydown', function (e) {
+    if (!scrim.classList.contains('open')) return;
+    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Enter') $('ok').click();
+  });
+  $('ok').addEventListener('click', function () {
+    var m = parseInt(mm.value, 10) || 0, s = parseInt(ss.value, 10) || 0;
+    if (s < 0 || s > 59 || m < 0 || m > 99) { err.textContent = 'Minutes : 0 à 99. Secondes : 0 à 59.'; return; }
+    if (m * 60 + s < 1) { err.textContent = 'Choisis une durée d’au moins 1 seconde.'; return; }
+    customSec = m * 60 + s;
+    try { localStorage.setItem('chrono.custom', String(customSec)); } catch (e) {}
+    scrim.classList.remove('open');
+    setDuration(customSec, customBtn);
+    customBtn.setAttribute('aria-label', 'Durée personnalisée : ' + m + ' min ' + s + ' s');
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && running) requestWake();
+  });
+
+  setLabel();
+  render(0);
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  window.addEventListener('load', function () {
+    try { navigator.serviceWorker.register('sw.js').catch(function () {}); } catch (e) {}
+  });
+}
+</script>
+</body>
+</html>

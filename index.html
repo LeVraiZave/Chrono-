@@ -9,8 +9,8 @@
 <meta name="apple-mobile-web-app-title" content="Chrono">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
-<link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Chrono</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -100,11 +100,10 @@
   .num { font-family: "Big Shoulders Display", Impact, "Arial Narrow", sans-serif; font-weight: 800; white-space: nowrap; line-height: .95; }
   .num i { font-style: normal; display: inline-block; text-align: center; }
   .num .d { width: .54em; } .num .s { width: .3em; } .num .p { width: .5em; }
-  .time { font-size: 21cqw; color: var(--ink); text-shadow: 0 0 16px rgba(22,196,255,.4); }
-  .time.long { font-size: 16.5cqw; }
-  .cs { font-size: 8.4cqw; color: var(--cyan); font-weight: 700; margin-top: .6cqw; }
-  .status { margin-top: 2.6cqw; font-size: clamp(11px, 3.3cqw, 16px); font-weight: 600; letter-spacing: .28em; color: var(--cyan); text-transform: uppercase; padding-left: .28em; }
-  .dial.done .time, .dial.done .cs, .dial.done .status { color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.55); }
+  .time { font-size: 23cqw; color: var(--ink); text-shadow: 0 0 16px rgba(22,196,255,.4); }
+  .time.long { font-size: 18cqw; }
+  .status { margin-top: 3.4cqw; font-size: clamp(11px, 3.3cqw, 16px); font-weight: 600; letter-spacing: .28em; color: var(--cyan); text-transform: uppercase; padding-left: .28em; }
+  .dial.done .time, .dial.done .status { color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.55); }
 
   /* Commandes */
   .controls { position: relative; z-index: 2; display: flex; gap: 3cqw; padding: 0 7cqw 9cqw; }
@@ -164,7 +163,6 @@
       </svg>
       <div class="readout" role="timer" aria-live="off">
         <div class="num time" id="time"></div>
-        <div class="num cs" id="cs"></div>
         <div class="status" id="status">Prêt</div>
       </div>
     </div>
@@ -198,7 +196,7 @@
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var NS = 'http://www.w3.org/2000/svg';
-  var dial = $('dial'), timeEl = $('time'), csEl = $('cs'), statusEl = $('status');
+  var dial = $('dial'), timeEl = $('time'), statusEl = $('status');
   var toggle = $('toggle'), flash = $('flash'), scrim = $('scrim');
   var presets = document.querySelectorAll('.preset');
 
@@ -244,15 +242,14 @@
 
   function render(elapsed) {
     var remaining = duration - elapsed, over = remaining <= 0;
-    var cs = over ? Math.floor(-remaining / 10) : Math.ceil(remaining / 10);
-    var m = Math.floor(cs / 6000), s = Math.floor(cs / 100) % 60, c = cs % 100;
+    var sTotal = over ? Math.floor(-remaining / 1000) : Math.ceil(remaining / 1000);
+    var m = Math.floor(sTotal / 60), s = sTotal % 60;
     var main = (over ? '+' : '') + m + ':' + pad(s);
     if (main !== lastMain) {
       lastMain = main;
       timeEl.innerHTML = spans(main);
       timeEl.classList.toggle('long', main.length > 5);
     }
-    csEl.innerHTML = spans('.' + pad(c));
     updateSegs(Math.min(1, elapsed / duration));
   }
 
@@ -295,7 +292,7 @@
     setLabel(); releaseWake();
   }
   function reset() {
-    running = false; finished = false; acc = 0; lastIdx = -1;
+    running = false; finished = false; acc = 0; lastIdx = -1; lastMain = '';
     cancelAnimationFrame(raf);
     flash.classList.remove('on');
     dial.classList.remove('done');

@@ -1,6 +1,6 @@
 /* Service worker : fonctionnement hors ligne.
    Pour publier une mise à jour, change simplement le numéro de VERSION. */
-const VERSION = 'chrono-v1';
+const VERSION = 'chrono-v2';
 const FONTS = 'chrono-fonts-v1';
 const CORE = [
   './',
